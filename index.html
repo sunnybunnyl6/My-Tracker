@@ -1,0 +1,139 @@
+<!-- Import Google Font: Caveat -->
+<style>
+  @import url('https://fonts.googleapis.com');
+
+  body { 
+    margin: 0; padding: 10px; background-color: white; 
+    display: flex; justify-content: center; overflow-x: hidden;
+  }
+
+  .hw-container { 
+    width: 100%; max-width: 500px; background: #fdfcf9; 
+    padding: 15px; border-radius: 30px; border: 2px solid #6b8e6b; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); font-family: 'Caveat', cursive; 
+    box-sizing: border-box;
+  }
+
+  h3 { text-align: center; color: #3a4d3a; margin: 0 0 10px 0; font-size: 1.6rem; }
+  
+  .input-area { 
+    display: flex; gap: 6px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;
+  }
+  
+  #hwInput { flex: 2 1 120px; }
+  #dateInput { flex: 1 1 110px; font-size: 0.9rem; }
+  
+  input[type="text"], input[type="date"], .btn { 
+    padding: 7px; border: 1px solid #d4cdc3; border-radius: 12px; 
+    font-family: 'Caveat', cursive; font-size: 1.1rem; outline: none;
+    box-sizing: border-box;
+  }
+
+  .btn { 
+    background: #6b8e6b; color: white; border: none; font-weight: 700;
+    cursor: pointer; transition: 0.2s; white-space: nowrap;
+  }
+  .btn:hover { background: #567356; }
+  #sortBtn { background: #8a9a5b; flex: 0.1; } /* Lighter green for sort */
+
+  .task-row { 
+    display: flex; flex-direction: column; background: white; 
+    padding: 10px; border-radius: 18px; margin-bottom: 6px; border: 1px solid #edf2ed;
+  }
+  
+  .task-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hw-text { flex: 1; font-size: 1.2rem; color: #2c3e2c; line-height: 1.1; overflow-wrap: anywhere; }
+  
+  .task-bottom { 
+    display: flex; align-items: center; justify-content: space-between; 
+    margin-top: 4px; border-top: 1px solid #f9f9f9; padding-top: 4px; flex-wrap: wrap; gap: 5px;
+  }
+  
+  .due-label { font-size: 0.95rem; color: #8a7d6a; }
+  .controls { display: flex; align-items: center; gap: 5px; }
+
+  select { 
+    font-family: 'Caveat', cursive; border-radius: 8px; border: 1px solid #ccd5cc; 
+    font-size: 0.9rem; cursor: pointer; padding: 1px 4px; background: #fff;
+  }
+
+  input[type="checkbox"] { accent-color: #6b8e6b; width: 16px; height: 16px; margin: 0; }
+  .del { color: #b38b8b; cursor: pointer; font-size: 1.3rem; border: none; background: none; }
+
+  .summary { font-size: 1rem; text-align: center; color: #6b8e6b; margin-top: 10px; border-top: 1.5px dashed #d4cdc3; padding-top: 8px; }
+</style>
+
+<div class="hw-container">
+  <h3>Homework Tracker</h3>
+  <div class="input-area">
+    <input type="text" id="hwInput" placeholder="New task...">
+    <input type="date" id="dateInput">
+    <button id="addBtn" class="btn" onclick="addHW()">Add</button>
+    <button id="sortBtn" class="btn" onclick="sortHW()" title="Sort by Date">🌿</button>
+  </div>
+  <div id="hwList"></div>
+  <div id="summary" class="summary"></div>
+</div>
+
+<script>
+  let homework = JSON.parse(localStorage.getItem('hw_sort_final')) || [];
+
+  function render() {
+    const list = document.getElementById('hwList');
+    const summary = document.getElementById('summary');
+    list.innerHTML = '';
+    
+    homework.forEach((h, i) => {
+      const isDone = h.status === 'Completed';
+      const dateParts = h.date ? h.date.split('-') : null;
+      const displayDate = dateParts ? `${dateParts[1]}/${dateParts[2]}` : '--/--';
+      
+      list.innerHTML += `
+        <div class="task-row">
+          <div class="task-top">
+            <span class="hw-text" style="${isDone ? 'text-decoration:line-through; opacity:0.6;' : ''}">${h.text}</span>
+            <button class="del" onclick="removeHW(${i})">×</button>
+          </div>
+          <div class="task-bottom">
+            <span class="due-label">Due: ${displayDate}</span>
+            <div class="controls">
+              <select onchange="updateHW(${i}, this.value)">
+                <option value="To Do" ${h.status === 'To Do' ? 'selected' : ''}>To Do</option>
+                <option value="Started" ${h.status === 'Started' ? 'selected' : ''}>Started</option>
+                <option value="Completed" ${isDone ? 'selected' : ''}>Done</option>
+              </select>
+              <input type="checkbox" ${isDone ? 'checked' : ''} disabled>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    const pending = homework.filter(h => h.status !== 'Completed').length;
+    summary.innerHTML = pending === 0 ? "Forest Clear! 🌿" : `${pending} tasks remaining`;
+  }
+
+  function addHW() {
+    const input = document.getElementById('hwInput');
+    const date = document.getElementById('dateInput');
+    if (!input.value.trim()) return;
+    homework.push({ text: input.value, date: date.value, status: 'To Do' });
+    input.value = ''; date.value = '';
+    sync();
+  }
+
+  function sortHW() {
+    // Sort logic: Move items with no date to the bottom, then sort by year-month-day
+    homework.sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date) - new Date(b.date);
+    });
+    sync();
+  }
+
+  function updateHW(idx, val) { homework[idx].status = val; sync(); }
+  function removeHW(idx) { homework.splice(idx, 1); sync(); }
+  function sync() { localStorage.setItem('hw_sort_final', JSON.stringify(homework)); render(); }
+
+  window.onload = render;
+</script>
